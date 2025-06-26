@@ -319,8 +319,9 @@
                 console.log('开始加载JS绑定...');
                 document.getElementById('loading').textContent = '正在加载游戏模块...';
 
-                // 动态导入JS绑定
-                const wasmModule = await import('./pkg/snake_game.js');
+                // 动态导入JS绑定 - 使用绝对路径避免协议问题
+                const baseUrl = window.location.protocol + '//' + window.location.host;
+                const wasmModule = await import(baseUrl + '/pkg/snake_game.js');
                 init = wasmModule.default;
                 Game = wasmModule.Game;
                 console.log('JS绑定加载成功');

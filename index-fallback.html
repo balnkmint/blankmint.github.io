@@ -84,6 +84,8 @@
     <div id="loading" class="loading">正在加载游戏...</div>
     <div id="error" class="error" style="display: none;"></div>
 
+    <!-- 直接引入JS文件，避免动态导入问题 -->
+    <script src="./pkg/snake_game.js"></script>
     <script>
         // 全局变量
         let game;
@@ -91,30 +93,23 @@
         let ctx;
         let animationId;
 
-        // 简化的WASM加载
+        // 使用传统方式加载WASM
         async function loadWasm() {
             try {
-                // 检查WebAssembly支持
-                if (typeof WebAssembly === 'undefined') {
-                    throw new Error('您的浏览器不支持WebAssembly');
+                console.log('开始初始化WASM...');
+                document.getElementById('loading').textContent = '正在初始化游戏引擎...';
+
+                // 检查是否已加载
+                if (typeof wasm_bindgen === 'undefined') {
+                    throw new Error('WASM绑定文件未正确加载');
                 }
 
-                console.log('开始加载WASM模块...');
-                document.getElementById('loading').textContent = '正在加载游戏模块...';
-
-                // 使用动态import加载 - 确保使用正确的协议
-                const baseUrl = window.location.protocol + '//' + window.location.host;
-                const wasmModule = await import(baseUrl + '/pkg/snake_game.js');
-                console.log('JS绑定加载成功');
-
-                document.getElementById('loading').textContent = '正在初始化游戏引擎...';
-                
                 // 初始化WASM
-                await wasmModule.default();
+                await wasm_bindgen('./pkg/snake_game_bg.wasm');
                 console.log('WASM初始化成功');
 
                 // 获取Game类
-                const Game = wasmModule.Game;
+                const Game = wasm_bindgen.Game;
                 
                 // 初始化游戏
                 canvas = document.getElementById('game-canvas');
@@ -140,11 +135,11 @@
                 document.getElementById('error').innerHTML = `
                     <h3>游戏加载失败</h3>
                     <p>错误信息: ${error.message}</p>
-                    <p>请尝试：</p>
+                    <p>这是备用加载方案，如果仍然失败，请：</p>
                     <ul>
-                        <li>刷新页面</li>
-                        <li>使用Chrome或Firefox浏览器</li>
+                        <li>确保使用HTTPS访问</li>
                         <li>检查网络连接</li>
+                        <li>尝试使用GitHub Pages默认域名</li>
                     </ul>
                 `;
             }
@@ -227,8 +222,12 @@
             }
         }
 
-        // 启动游戏
-        loadWasm();
+        // 等待页面加载完成后启动
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadWasm);
+        } else {
+            loadWasm();
+        }
     </script>
 </body>
 </html>
