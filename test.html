@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WASM测试</title>
+</head>
+<body>
+    <h1>WASM加载测试</h1>
+    <div id="status">正在测试...</div>
+    <div id="error" style="color: red; display: none;"></div>
+
+    <script type="module">
+        async function test() {
+            try {
+                console.log('开始测试WASM加载...');
+                
+                // 检查WebAssembly支持
+                if (typeof WebAssembly === 'undefined') {
+                    throw new Error('浏览器不支持WebAssembly');
+                }
+                console.log('✓ WebAssembly支持检查通过');
+
+                // 检查fetch支持
+                if (typeof fetch === 'undefined') {
+                    throw new Error('浏览器不支持fetch API');
+                }
+                console.log('✓ Fetch API支持检查通过');
+
+                // 尝试加载WASM文件
+                console.log('正在加载WASM文件...');
+                const response = await fetch('./pkg/snake_game_bg.wasm');
+                if (!response.ok) {
+                    throw new Error(`WASM文件加载失败: ${response.status} ${response.statusText}`);
+                }
+                console.log('✓ WASM文件加载成功');
+
+                // 尝试加载JS绑定
+                console.log('正在加载JS绑定...');
+                const { default: init, Game } = await import('./pkg/snake_game.js');
+                console.log('✓ JS绑定加载成功');
+
+                // 初始化WASM
+                console.log('正在初始化WASM...');
+                await init();
+                console.log('✓ WASM初始化成功');
+
+                // 创建游戏实例
+                console.log('正在创建游戏实例...');
+                const game = new Game();
+                console.log('✓ 游戏实例创建成功');
+
+                document.getElementById('status').innerHTML = '✅ 所有测试通过！游戏应该可以正常运行。';
+                document.getElementById('status').style.color = 'green';
+
+            } catch (error) {
+                console.error('测试失败:', error);
+                document.getElementById('status').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').innerHTML = `❌ 测试失败: ${error.message}<br><br>详细信息请查看浏览器控制台`;
+            }
+        }
+
+        test();
+    </script>
+</body>
+</html>

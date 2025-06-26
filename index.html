@@ -306,7 +306,8 @@
     <div id="error" class="error" style="display: none;"></div>
 
     <script type="module">
-        import init, { Game } from './pkg/snake_game.js';
+        // 动态导入以提供更好的错误处理
+        let init, Game;
 
         let game;
         let canvas;
@@ -315,15 +316,39 @@
 
         async function run() {
             try {
-                // 初始化WASM模块
+                console.log('开始加载JS绑定...');
+                document.getElementById('loading').textContent = '正在加载游戏模块...';
+
+                // 动态导入JS绑定
+                const wasmModule = await import('./pkg/snake_game.js');
+                init = wasmModule.default;
+                Game = wasmModule.Game;
+                console.log('JS绑定加载成功');
+
+                console.log('开始初始化WASM模块...');
+                document.getElementById('loading').textContent = '正在初始化WASM模块...';
+
+                // 尝试初始化WASM模块
                 await init();
+                console.log('WASM模块初始化成功');
+
+                document.getElementById('loading').textContent = '正在初始化游戏...';
 
                 // 获取canvas和context
                 canvas = document.getElementById('game-canvas');
+                if (!canvas) {
+                    throw new Error('找不到游戏画布');
+                }
+
                 ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    throw new Error('无法获取2D渲染上下文');
+                }
+                console.log('Canvas初始化成功');
 
                 // 创建游戏实例
                 game = new Game();
+                console.log('游戏实例创建成功');
 
                 // 设置键盘事件监听器
                 document.addEventListener('keydown', handleKeyDown);
@@ -331,19 +356,31 @@
 
                 // 设置虚拟按键事件监听器
                 setupVirtualControls();
+                console.log('事件监听器设置完成');
 
                 // 隐藏加载提示
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('status').textContent = '游戏中';
 
+                console.log('开始游戏循环');
                 // 开始游戏循环
                 gameLoop();
 
             } catch (error) {
-                console.error('Failed to initialize game:', error);
+                console.error('游戏初始化失败:', error);
+                console.error('错误堆栈:', error.stack);
+
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('error').style.display = 'block';
-                document.getElementById('error').textContent = '游戏加载失败: ' + error.message;
+
+                let errorMsg = '游戏加载失败: ' + error.message;
+                if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
+                    errorMsg += '\n\n这可能是GitHub Pages的WASM文件加载问题。\n请尝试：\n1. 刷新页面\n2. 清除浏览器缓存\n3. 使用Chrome或Firefox浏览器';
+                } else if (error.message.includes('WebAssembly')) {
+                    errorMsg += '\n\n您的浏览器可能不支持WebAssembly。\n请使用现代浏览器（Chrome 57+, Firefox 52+, Safari 11+）';
+                }
+
+                document.getElementById('error').innerHTML = errorMsg.replace(/\n/g, '<br>');
             }
         }
 
@@ -451,8 +488,21 @@
             });
         }
 
+        // 检查WebAssembly支持
+        function checkWebAssemblySupport() {
+            if (typeof WebAssembly === 'undefined') {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = '您的浏览器不支持WebAssembly。请使用现代浏览器（Chrome 57+, Firefox 52+, Safari 11+）';
+                return false;
+            }
+            return true;
+        }
+
         // 启动游戏
-        run();
+        if (checkWebAssemblySupport()) {
+            run();
+        }
     </script>
 </body>
 </html>

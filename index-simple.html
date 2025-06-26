@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>blankmint的贪吃猫游戏 - Rust + WASM</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #00ff00;
+        }
+        
+        #game-canvas {
+            border: 2px solid #00ff00;
+            background-color: #000;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+        
+        .info {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .loading {
+            font-size: 18px;
+            text-align: center;
+            margin: 20px;
+            color: #00ff00;
+        }
+        
+        .error {
+            color: #ff4444;
+            background-color: #2a1a1a;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px;
+            max-width: 600px;
+        }
+        
+        button {
+            background-color: #00ff00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            background-color: #00cc00;
+        }
+    </style>
+</head>
+<body>
+    <h1>🐱 blankmint的贪吃猫游戏</h1>
+    
+    <div class="info">
+        <div>分数: <span id="score">0</span></div>
+        <div>状态: <span id="status">加载中...</span></div>
+    </div>
+    
+    <canvas id="game-canvas" width="600" height="400"></canvas>
+    
+    <div class="info">
+        <button id="restart-btn" onclick="restartGame()">重新开始</button>
+        <button id="pause-btn" onclick="togglePause()">暂停/继续</button>
+    </div>
+    
+    <div id="loading" class="loading">正在加载游戏...</div>
+    <div id="error" class="error" style="display: none;"></div>
+
+    <script>
+        // 全局变量
+        let game;
+        let canvas;
+        let ctx;
+        let animationId;
+
+        // 简化的WASM加载
+        async function loadWasm() {
+            try {
+                // 检查WebAssembly支持
+                if (typeof WebAssembly === 'undefined') {
+                    throw new Error('您的浏览器不支持WebAssembly');
+                }
+
+                console.log('开始加载WASM模块...');
+                document.getElementById('loading').textContent = '正在加载游戏模块...';
+
+                // 使用动态import加载
+                const wasmModule = await import('./pkg/snake_game.js');
+                console.log('JS绑定加载成功');
+
+                document.getElementById('loading').textContent = '正在初始化游戏引擎...';
+                
+                // 初始化WASM
+                await wasmModule.default();
+                console.log('WASM初始化成功');
+
+                // 获取Game类
+                const Game = wasmModule.Game;
+                
+                // 初始化游戏
+                canvas = document.getElementById('game-canvas');
+                ctx = canvas.getContext('2d');
+                game = new Game();
+
+                // 设置事件监听
+                document.addEventListener('keydown', handleKeyDown);
+                
+                // 隐藏加载提示
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('status').textContent = '游戏中';
+
+                // 开始游戏循环
+                gameLoop();
+
+                console.log('游戏初始化完成');
+
+            } catch (error) {
+                console.error('加载失败:', error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').innerHTML = `
+                    <h3>游戏加载失败</h3>
+                    <p>错误信息: ${error.message}</p>
+                    <p>请尝试：</p>
+                    <ul>
+                        <li>刷新页面</li>
+                        <li>使用Chrome或Firefox浏览器</li>
+                        <li>检查网络连接</li>
+                    </ul>
+                `;
+            }
+        }
+
+        function handleKeyDown(event) {
+            if (!game) return;
+            
+            switch(event.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    game.set_direction_from_key('ArrowUp');
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    game.set_direction_from_key('ArrowDown');
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    game.set_direction_from_key('ArrowLeft');
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    game.set_direction_from_key('ArrowRight');
+                    break;
+                case ' ':
+                    event.preventDefault();
+                    if (game && !game.is_game_over()) {
+                        game.toggle_pause();
+                    }
+                    break;
+            }
+        }
+
+        function gameLoop() {
+            if (!game) return;
+
+            game.update();
+            game.render(ctx);
+
+            // 更新分数
+            document.getElementById('score').textContent = game.get_score();
+
+            // 更新状态
+            if (game.is_game_over()) {
+                document.getElementById('status').textContent = '游戏结束';
+                setTimeout(() => {
+                    if (confirm('游戏结束！是否重新开始？')) {
+                        game.restart();
+                        gameLoop();
+                    }
+                }, 100);
+                return;
+            } else if (game.is_paused()) {
+                document.getElementById('status').textContent = '已暂停';
+            } else {
+                document.getElementById('status').textContent = '游戏中';
+            }
+
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function restartGame() {
+            if (game) {
+                game.restart();
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                }
+                gameLoop();
+            }
+        }
+
+        function togglePause() {
+            if (game && !game.is_game_over()) {
+                game.toggle_pause();
+            }
+        }
+
+        // 启动游戏
+        loadWasm();
+    </script>
+</body>
+</html>
