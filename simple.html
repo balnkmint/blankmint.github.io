@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>blankmint的贪吃猫游戏 - 简化版</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #00ff00;
+        }
+        
+        .status {
+            margin: 20px 0;
+            text-align: center;
+            font-size: 18px;
+        }
+        
+        .error {
+            color: #ff4444;
+            background-color: #2a1a1a;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px;
+            max-width: 600px;
+        }
+        
+        .success {
+            color: #00ff00;
+            background-color: #1a2a1a;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px;
+            max-width: 600px;
+        }
+        
+        .info {
+            color: #ffff00;
+            background-color: #2a2a1a;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px;
+            max-width: 600px;
+        }
+        
+        button {
+            background-color: #00ff00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        button:hover {
+            background-color: #00cc00;
+        }
+        
+        .links {
+            margin: 20px 0;
+        }
+        
+        .links a {
+            color: #00ff00;
+            text-decoration: none;
+            margin: 0 10px;
+            padding: 5px 10px;
+            border: 1px solid #00ff00;
+            border-radius: 3px;
+        }
+        
+        .links a:hover {
+            background-color: #00ff00;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <h1>🐱 blankmint的贪吃猫游戏</h1>
+    
+    <div class="status" id="status">正在检查部署状态...</div>
+    
+    <div class="links">
+        <a href="/" target="_blank">主游戏页面</a>
+        <a href="/index-simple.html" target="_blank">简化版本</a>
+        <a href="/index-fallback.html" target="_blank">备用版本</a>
+        <a href="/test.html" target="_blank">测试页面</a>
+    </div>
+    
+    <button onclick="checkDeployment()">检查部署状态</button>
+    <button onclick="window.location.reload()">刷新页面</button>
+
+    <script>
+        async function checkDeployment() {
+            const status = document.getElementById('status');
+            status.innerHTML = '正在检查文件...';
+            
+            const filesToCheck = [
+                '/pkg/snake_game.js',
+                '/pkg/snake_game_bg.wasm',
+                '/index.html'
+            ];
+            
+            const results = [];
+            
+            for (const file of filesToCheck) {
+                try {
+                    const response = await fetch(file, { method: 'HEAD' });
+                    results.push({
+                        file: file,
+                        status: response.status,
+                        ok: response.ok
+                    });
+                } catch (error) {
+                    results.push({
+                        file: file,
+                        status: 'ERROR',
+                        ok: false,
+                        error: error.message
+                    });
+                }
+            }
+            
+            let html = '<h3>部署状态检查结果：</h3><ul>';
+            let allOk = true;
+            
+            results.forEach(result => {
+                const icon = result.ok ? '✅' : '❌';
+                html += `<li>${icon} ${result.file}: ${result.status}</li>`;
+                if (!result.ok) allOk = false;
+            });
+            
+            html += '</ul>';
+            
+            if (allOk) {
+                html += '<p style="color: #00ff00;">🎉 所有文件都已正确部署！游戏应该可以正常运行。</p>';
+                html += '<p><a href="/" style="color: #00ff00;">点击这里开始游戏</a></p>';
+                status.className = 'success';
+            } else {
+                html += '<p style="color: #ff4444;">⚠️ 部分文件未找到。请等待GitHub Pages完成部署，或检查GitHub Actions状态。</p>';
+                html += '<p>可能的解决方案：</p>';
+                html += '<ul>';
+                html += '<li>等待2-5分钟后重新检查</li>';
+                html += '<li>确保GitHub Pages已在仓库设置中启用</li>';
+                html += '<li>检查GitHub Actions是否成功运行</li>';
+                html += '</ul>';
+                status.className = 'error';
+            }
+            
+            status.innerHTML = html;
+        }
+        
+        // 页面加载时自动检查
+        window.addEventListener('load', () => {
+            setTimeout(checkDeployment, 1000);
+        });
+        
+        // 显示当前URL信息
+        document.addEventListener('DOMContentLoaded', () => {
+            const info = document.createElement('div');
+            info.className = 'info';
+            info.innerHTML = `
+                <h3>当前访问信息：</h3>
+                <p><strong>域名：</strong> ${window.location.hostname}</p>
+                <p><strong>协议：</strong> ${window.location.protocol}</p>
+                <p><strong>完整URL：</strong> ${window.location.href}</p>
+            `;
+            document.body.appendChild(info);
+        });
+    </script>
+</body>
+</html>
